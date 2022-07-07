@@ -91,11 +91,13 @@ public class ObjectStateManager : MonoBehaviour
                         }
                     }
                     movedLine.Clear();
+                    Matrixgridcontroller.CurrentPiece.GetComponent<ControlPiece>().UpdateGhostPiece();
                 }
             }
             if (Matrixgridcontroller.gameEnded)
             {
                 transform.GetComponent<Renderer>().material.SetColor("_Color",Color.gray);
+                Matrixgridcontroller.grid[cx, cy, cz] = 0;
             }
         }
     }

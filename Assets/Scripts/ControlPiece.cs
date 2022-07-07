@@ -34,25 +34,34 @@ public class ControlPiece : MonoBehaviour
         for (int i = 0; i < amount; i++)
         {
             piecefrag[i] = Instantiate(Segment, new Vector3(transform.position.x + ofsetx[i], transform.position.y + ofsety[i], transform.position.z + ofsetz[i]), Quaternion.identity, transform) as GameObject;
-            ghostfrag[i] = Instantiate(Segment, new Vector3(transform.position.x + ofsetx[i], transform.position.y + ofsety[i], transform.position.z + ofsetz[i]), Quaternion.identity, transform) as GameObject;
+            if (!isDisabled) { 
+                ghostfrag[i] = Instantiate(Segment, new Vector3(transform.position.x + ofsetx[i], transform.position.y + ofsety[i], transform.position.z + ofsetz[i]), Quaternion.identity, transform) as GameObject;
+                ghostfrag[i].name = "g " + i;
+            }
+            else
+            {
+                Destroy(objectStateManager[i]);
+            }
             piecefrag[i].name = "p " + i;
-            ghostfrag[i].name = "g " + i;
             objectStateManager[i] = piecefrag[i].GetComponent<ObjectStateManager>();
         }
         SetPieceColor();
-        SetGhostPiece();
-        movementSpeed = GameObject.Find("MG").GetComponent<Matrixgridcontroller>().movementSpeed;
+        if (!isDisabled) { SetGhostPiece(); }
+        movementSpeed =Matrixgridcontroller.movementSpeed;
         movbuff = movementSpeed;
         FreezeMargine = GameObject.Find("MG").GetComponent<Matrixgridcontroller>().FreezeMargine;
         frezbuff = GameObject.Find("MG").GetComponent<Matrixgridcontroller>().FreezeMargine;
-        spawnX = (int)Mathf.Ceil((GameObject.Find("GameFieldCrator").GetComponent<InstantiateField>().x + 2)/2);
+        spawnX = (int)Mathf.Ceil((InstantiateField.FieldDepth + 2)/2);
         spawnY = (int)Mathf.Ceil((GameObject.Find("GameFieldCrator").GetComponent<InstantiateField>().y + 2)/2);
         spawnZ = GameObject.Find("GameFieldCrator").GetComponent<InstantiateField>().z + 2;
         height = GameObject.Find("GameFieldCrator").GetComponent<InstantiateField>().z;
         MainCamera = GameObject.Find("Main Camera").GetComponent<Camera>();
         gameScoreLevelManager = GameObject.Find("ScoreManager").GetComponent<GameScoreLevelManager>();
 
-        UpdateGhostPiece();
+        if (!isDisabled)
+        {
+            UpdateGhostPiece();
+        }
     }
     void SetGhostPiece() {
         for (int i = 0; i < amount; i++) {
@@ -102,7 +111,7 @@ public class ControlPiece : MonoBehaviour
         }
         UpdateGhostPiece();
     }
-    void UpdateGhostPiece()
+    public void UpdateGhostPiece()
     {
         DropPos = GetFinalPosition();
         for (int i = 0; i < amount; i++)
@@ -178,6 +187,7 @@ public class ControlPiece : MonoBehaviour
             movementSpeed = 0;
             gameScoreLevelManager.CurrentScore += (int)(transform.position.y - DropPos.y) * 2;
             transform.position = DropPos;
+            CameraEffects.Shake();
         }
     }
     void SoftDrop()
@@ -284,125 +294,146 @@ public class ControlPiece : MonoBehaviour
         fallnow = true;
     }
     bool inhold = false;
+    bool isDisabled = false;
+    public void DisablePiece()
+    {
+        IsMovable = false;
+        fallnow = false;
+        CancelInvoke("FallDown");
+        isDisabled = true;
+    }
+    private Quaternion preHoldRotation;
     void Update()
     {
-        if (objectStateManager[0].State == 1 && fallnow) { Invoke("FallDown", movementSpeed); fallnow = false; }
-        if (objectStateManager[0].State == 1 || objectStateManager[0].State == 0 )
+        if (!isDisabled)
         {
-            int cx = (int)piecefrag[0].transform.position.x; int cy = (int)piecefrag[0].transform.position.y; int cz = (int)piecefrag[0].transform.position.z;
-            //Doing the stopping if the bottom pieces should stop
-            bool cancelStop = true;
-            for (int i = 0; i < amount; i++)
+            if (objectStateManager[0].State == 1 && fallnow) {Invoke("FallDown", movementSpeed);fallnow = false;}
+            if (objectStateManager[0].State == 1 || objectStateManager[0].State == 0)
             {
-                if (objectStateManager[i].CheckBelow())
+                int cx = (int)piecefrag[0].transform.position.x; int cy = (int)piecefrag[0].transform.position.y; int cz = (int)piecefrag[0].transform.position.z;
+                //Doing the stopping if the bottom pieces should stop
+                bool cancelStop = true;
+                for (int i = 0; i < amount; i++)
                 {
-                    for (int j = 0; j < amount; j++) { objectStateManager[j].State = 0; }
-                    cancelStop = false;
-                    Invoke("TheStop", FreezeMargine);
-                    break;
+                    if (objectStateManager[i].CheckBelow())
+                    {
+                        for (int j = 0; j < amount; j++) { objectStateManager[j].State = 0; }
+                        cancelStop = false;
+                        Invoke("TheStop", FreezeMargine);
+                        break;
+                    }
                 }
-            }
-            if (cancelStop)
-            {
-                CancelInvoke("TheStop");
-                for (int i = 0; i < amount; i++) { objectStateManager[i].State = 1; }
-            }
-            //else if (objectStateManager.fallnow) - neshto takova zashtoto se suzdavat nqkakvi bugove i chastite se razglobqvat
-            if (IsMovable)
-            {
-                int flipControls = 1;
-                if (Matrixgridcontroller.fliped) {
-                    flipControls = -1;
-                }
-                switch (Input.inputString)
+                if (cancelStop)
                 {
+                    CancelInvoke("TheStop");
+                    for (int i = 0; i < amount; i++) { objectStateManager[i].State = 1; }
+                }
+                //else if (objectStateManager.fallnow) - neshto takova zashtoto se suzdavat nqkakvi bugove i chastite se razglobqvat
+                if (IsMovable)
+                {
+                    int flipControls = 1;
+                    if (Matrixgridcontroller.fliped)
+                    {
+                        flipControls = -1;
+                    }
+                    switch (Input.inputString)
+                    {
 
-                    case "4":
-                        Movedirection((int)transform.position.x, (int)transform.position.y, (int)transform.position.z, 0, -1*flipControls);
-                        return;
-                    case "6":
-                        Movedirection((int)transform.position.x, (int)transform.position.y, (int)transform.position.z, 0, 1 * flipControls);
-                        return;
-                    case "8":
-                        Movedirection((int)transform.position.x, (int)transform.position.y, (int)transform.position.z, -1 * flipControls, 0);
-                        return;
-                    case "f":
-                    case "5":
-                        Movedirection((int)transform.position.x, (int)transform.position.y, (int)transform.position.z, 1 * flipControls, 0);
-                        return;
-                    case "z":
-                        if (IsRotatable)
-                        {
-                            Rotate(cx, cy, cz, ofsetx, ofsety, 1);
+                        case "4":
+                            Movedirection((int)transform.position.x, (int)transform.position.y, (int)transform.position.z, 0, -1 * flipControls);
                             return;
-                        }
-                        break;
-                    case "x":
-                        if (IsRotatable)
-                        {
-                            Rotate(cx, cy, cz, ofsety, ofsetz, 2);
+                        case "6":
+                            Movedirection((int)transform.position.x, (int)transform.position.y, (int)transform.position.z, 0, 1 * flipControls);
                             return;
-                        }
-                        break;
-                    case "c":
-                        if (IsRotatable)
-                        {
-                            Rotate(cx, cy, cz, ofsetz, ofsetx, 3);
+                        case "8":
+                            Movedirection((int)transform.position.x, (int)transform.position.y, (int)transform.position.z, -1 * flipControls, 0);
                             return;
-                        }
-                        break;
+                        case "f":
+                        case "5":
+                            Movedirection((int)transform.position.x, (int)transform.position.y, (int)transform.position.z, 1 * flipControls, 0);
+                            return;
+                        case "z":
+                            if (IsRotatable)
+                            {
+                                Rotate(cx, cy, cz, ofsetx, ofsety, 1);
+                                return;
+                            }
+                            break;
+                        case "x":
+                            if (IsRotatable)
+                            {
+                                Rotate(cx, cy, cz, ofsety, ofsetz, 2);
+                                return;
+                            }
+                            break;
+                        case "c":
+                            if (IsRotatable)
+                            {
+                                Rotate(cx, cy, cz, ofsetz, ofsetx, 3);
+                                return;
+                            }
+                            break;
+                    }
+                    SoftDrop();
                 }
-                SoftDrop();
+                HardDrop();
             }
-            HardDrop();
-        }
-        if (objectStateManager[0].State == 2)
-        {
-            objectStateManager[0].Invoke("playStopSound",0.05f);
-            //Deleting and destroying parent; ready for new piece 
-            Matrixgridcontroller.oktoSpawn = true;
-            for (int i = 0; i < amount; i++)
+            if (objectStateManager[0].State == 2)
             {
-                Child[i] = transform.Find("p " + i);
-                Child[i].parent = null;
-            }
-            Destroy(this.gameObject);
-        }
-        //Hold mechanism
-        if (Input.GetKeyDown(KeyCode.LeftShift))
-        {
-            if (!inhold)
-            {
-                inhold = true;
-                IsMovable = false;
-                fallnow = false;
-                CancelInvoke("FallDown");
+                objectStateManager[0].Invoke("playStopSound", 0.05f);
+                //Deleting and destroying parent; ready for new piece 
+                Matrixgridcontroller.oktoSpawn = true;
                 for (int i = 0; i < amount; i++)
                 {
-                    objectStateManager[i].State = 3;
+                    Child[i] = transform.Find("p " + i);
+                    Child[i].parent = null;
                 }
-                transform.parent = MainCamera.transform;
-                transform.position = new Vector3(spawnX, spawnZ-7, spawnY-10);
-                for (int i = 0; i < amount; i++)
-                {
-                    ghostfrag[i].transform.position = new Vector3(spawnX, spawnZ - 7, spawnY - 10);
-                }
-                return;
+                Destroy(this.gameObject);
             }
-            else
-            {
-                transform.parent = null;
-                IsMovable = true;
-                fallnow = true;
-                for (int i = 0; i < amount; i++)
-                {
-                    objectStateManager[i].State = 1;
-                }
-                transform.position = new Vector3(spawnX, spawnZ, spawnY);
-                inhold = false;
 
-                UpdateGhostPiece();
-                return;
+            //Hold mechanism
+            if (Input.GetKeyDown(KeyCode.LeftShift) && !InstantiateField.inRotation)
+            {
+                if (!inhold)
+                {
+                    preHoldRotation = transform.rotation;
+                    inhold = true;
+                    IsMovable = false;
+                    fallnow = false;
+                    CancelInvoke("FallDown");
+                    for (int i = 0; i < amount; i++)
+                    {
+                        objectStateManager[i].State = 3;
+                    }
+                    int flippCoef = 1;
+                    if (Matrixgridcontroller.fliped) { flippCoef = -1; } else { flippCoef = 1; }
+                    transform.parent = MainCamera.transform;
+                    transform.position = new Vector3(transform.parent.transform.position.x - 19 * flippCoef, transform.parent.transform.position.y - 3.5f, transform.parent.transform.position.z - 6.5f * flippCoef);
+                    for (int i = 0; i < amount; i++)
+                    {
+                        ghostfrag[i].transform.position = new Vector3(transform.parent.transform.position.x - 19 * flippCoef, transform.parent.transform.position.y - 3.5f, transform.parent.transform.position.z - 6.5f * flippCoef);
+                    }
+                    return;
+                }
+                else
+                {
+                    transform.rotation = preHoldRotation;
+                    transform.parent = null;
+                    IsMovable = true;
+                    fallnow = true;
+                    for (int i = 0; i < amount; i++)
+                    {
+                        objectStateManager[i].State = 1;
+                    }
+                    transform.position = new Vector3(spawnX, spawnZ, spawnY);
+                    inhold = false;
+
+                    UpdateGhostPiece();
+                    return;
+                }
+            }
+            if (inhold) {
+                transform.Rotate(new Vector3(transform.rotation.x+1, transform.rotation.y + 1, transform.rotation.z + 1));
             }
         }
     }

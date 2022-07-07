@@ -17,6 +17,7 @@ public class GameScoreLevelManager : MonoBehaviour
     };
     public TextCounterUtility scoreCounterUtility;
     public TextCounterUtility lineCounterUtility;
+    public TextCounterUtility finalScoreCounterUtility;
     public Text Level;
     public Text LinesCleared;
     public int CurrentScore
@@ -31,17 +32,28 @@ public class GameScoreLevelManager : MonoBehaviour
     private void Start()
     {
         Level.text = currentLevel.ToString();
+        currentLevel = 1;
+        currentScore = 0;
     }
-    public void MangeLevel()
+    bool trig = false;
+    public void ManageLevel()
     {
         if (Matrixgridcontroller.LineToClearHeights.Count>0)
         {
             if (Matrixgridcontroller.totalClearLines>= currentLevel * 10)
             {
+                if (currentLevel % 2 == 0)
+                {
+                    Matrixgridcontroller.movementSpeed -= 0.1f;
+                }
                 currentLevel += 1;
                 Level.text = currentLevel.ToString();
             }
             lineCounterUtility.Value += Matrixgridcontroller.LineToClearHeights.Count;
+        }
+        if (Matrixgridcontroller.gameEnded && !trig) {
+            finalScoreCounterUtility.Value += CurrentScore;
+            trig = true;
         }
     }
 }

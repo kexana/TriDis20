@@ -8,7 +8,7 @@ public class Matrixgridcontroller : MonoBehaviour
     public static int y;
     public static int z;
     public GameObject []pieces;
-    public float movementSpeed= 0.4f;
+    public static float movementSpeed= 0.8f;
     public float FreezeMargine = 0.4f;
     public AudioSource LineSound;
     public AudioClip OneLiner;
@@ -17,16 +17,20 @@ public class Matrixgridcontroller : MonoBehaviour
     public AudioClip Tetris;
     public AudioClip SpinSound;
     public GameScoreLevelManager gameScoreLevelManager ;
+    public GameObject GameOverCanvas;
+    public Camera mainCamera;
+    public static GameObject CurrentPiece;
     void Awake()
     {
         //--------Linking the parameters from IsntantiateField script------
-        x = GameObject.Find("GameFieldCrator").GetComponent<InstantiateField>().x+2;
+        x = InstantiateField.FieldDepth+2;
         y = GameObject.Find("GameFieldCrator").GetComponent<InstantiateField>().y+2;
         z = GameObject.Find("GameFieldCrator").GetComponent<InstantiateField>().z+1;
         //Debug.Log(x+" "+y+" "+z);
         LineSound=GetComponent<AudioSource>();
     }
     public static int[,,] grid = new int[100, 100, 100];
+    int nextPieceType;
     void Start()
     {
         for (int i = 0; i < x; i++)
@@ -35,11 +39,19 @@ public class Matrixgridcontroller : MonoBehaviour
             {
                 for(int k = 0; k < y; k++)
                 {
-                    grid[i, j, k] = 0;                    
+                    grid[i, j, k] = 0;
                 }
             }
         }
         resetBag(pieces.Length);
+        nextPieceType = Random.Range(0, partsBag.Count);
+        GameOverCanvas.SetActive(false);
+        gameEnded = false;
+        oktoSpawn = true;
+        firstHold = true;
+        isClear = true;
+        totalClearLines = 0;
+        LineToClear = false;
     }
     List<int> partsBag = new List<int>();
     public void resetBag(int n)
@@ -51,7 +63,6 @@ public class Matrixgridcontroller : MonoBehaviour
     }
     public void Spawn()   
     {
-        int randValue;
         int spawnX;
         if (fliped)
         {
@@ -62,17 +73,18 @@ public class Matrixgridcontroller : MonoBehaviour
         }
         if (partsBag.Count > 1)
         {
-            randValue = Random.Range(0, partsBag.Count);
-            Instantiate(pieces[partsBag[randValue]], new Vector3(spawnX, z + 1, Mathf.Ceil(y / 2)), Quaternion.identity);
-            partsBag.RemoveAt(randValue);
+            CurrentPiece=Instantiate(pieces[partsBag[nextPieceType]], new Vector3(spawnX, z + 1, Mathf.Ceil(y / 2)), Quaternion.identity);
+            partsBag.RemoveAt(nextPieceType);
+            nextPieceType = Random.Range(0, partsBag.Count);
         }
         else
         {
-            Instantiate(pieces[partsBag[0]], new Vector3(spawnX, z + 1, Mathf.Ceil(y / 2)), Quaternion.identity);
+            CurrentPiece=Instantiate(pieces[partsBag[0]], new Vector3(spawnX, z + 1, Mathf.Ceil(y / 2)), Quaternion.identity);
             partsBag.RemoveAt(0);
             resetBag(pieces.Length);
         }
 
+        ManageNextPiece();
     }
     void ResetClearLine()
     {
@@ -148,7 +160,17 @@ public class Matrixgridcontroller : MonoBehaviour
             if (!isClear) { break; }
         }
     }
+    GameObject nextPiece;
     public static bool oktoSpawn=true;
+    void ManageNextPiece() {
+        Destroy(nextPiece);
+        nextPiece = Instantiate(pieces[partsBag[nextPieceType]], new Vector3(0, 0, 0), Quaternion.identity) as GameObject;
+        nextPiece.GetComponent<ControlPiece>().DisablePiece();
+        int flippCoef = 1;
+        if (fliped) { flippCoef = -1; } else { flippCoef = 1; }
+        nextPiece.transform.parent = mainCamera.transform;
+        nextPiece.transform.position = new Vector3(mainCamera.transform.position.x - 21 * flippCoef, mainCamera.transform.position.y - 2, mainCamera.transform.position.z + 8f * flippCoef);
+    }
     void Update()
     {
         if (oktoSpawn)
@@ -160,14 +182,16 @@ public class Matrixgridcontroller : MonoBehaviour
                 Calculateclearlines();
                 totalClearLines += LineToClearHeights.Count;
                 EvaluateClearedLines();
-                gameScoreLevelManager.MangeLevel();
                 Spawn();
                 Invoke("ResetClearLine", 0.1f);
                 oktoSpawn = false;
             }
             else {
                 gameEnded = true;
+                GameOverCanvas.SetActive(true);
             }
+
+            gameScoreLevelManager.ManageLevel();
         }
         if (Input.GetKeyDown(KeyCode.LeftShift))
         {
